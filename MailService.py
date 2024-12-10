@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 import os
+from OpenAIService import OpenAIService
 
 def fetch_email_by_id(email_id):
     # Wczytaj dane z pliku .env
@@ -93,19 +94,46 @@ def fetch_all_email_ids():
 
     return email_ids
 
-# Pobierz wszystkie identyfikatory wiadomości
-email_ids = fetch_all_email_ids()
+async def main():
+    email_ids = fetch_all_email_ids()
 
-# Przetwórz każdy e-mail
-for email_id in email_ids:
-    emails = fetch_email_by_id(email_id)
+    for email_id in email_ids:
+        emails = fetch_email_by_id(email_id)
 
-    # Otwórz plik do zapisu
-    if emails:
-        with open("emails_markdown.md", "a", encoding="utf-8") as file:  # Use "a" to append to the file
-            subject, body = emails
-            markdown_email = convert_email_to_markdown(subject, body)
-            # Zapisz przetworzony e-mail do pliku
-            file.write(markdown_email + "\n\n")
-    else:
-        print(f"No email found for ID: {email_id}")
+        if emails:
+            with open("emails_markdown.md", "a", encoding="utf-8") as file:
+                subject, body = emails
+                markdown_email = convert_email_to_markdown(subject, body)
+
+                openai_service = OpenAIService()
+                token_count = await openai_service.count_tokens([{"role": "user", "content": markdown_email}])
+                print(f"Email length in tokens: {token_count}")
+
+                if token_count < 900:
+                    file.write(markdown_email + "\n\n")
+                else:
+                    lines = markdown_email.split('\n')
+                    current_chunk = []
+                    current_chunk_tokens = 0
+
+                    for line in lines:
+                        line_tokens = await openai_service.count_tokens([{"role": "user", "content": line}])
+                        if current_chunk_tokens + line_tokens < 900:
+                            current_chunk.append(line)
+                            current_chunk_tokens += line_tokens
+                        else:
+                            file.write('\n'.join(current_chunk) + "\n\n")
+
+                            current_chunk = [line]
+                            current_chunk_tokens = line_tokens
+
+                    if current_chunk:
+                        file.write('\n'.join(current_chunk) + "\n\n")
+
+                file.write(markdown_email + "\n\n")
+        else:
+            print(f"No email found for ID: {email_id}")
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
