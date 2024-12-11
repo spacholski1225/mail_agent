@@ -1,10 +1,12 @@
 import imaplib
 import email
+import requests
+import json
+import os
 from email.header import decode_header
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
-import os
 from OpenAIService import OpenAIService
 
 def fetch_email_by_id(email_id):
@@ -28,13 +30,11 @@ def fetch_email_by_id(email_id):
 
     for response_part in msg_data:
         if isinstance(response_part, tuple):
-            # Przetwórz wiadomość
             msg = email.message_from_bytes(response_part[1])
             subject, encoding = decode_header(msg["Subject"])[0]
             if isinstance(subject, bytes):
                 subject = subject.decode(encoding if encoding else "utf-8")
             
-            # Pobierz zawartość wiadomości
             if msg.is_multipart():
                 for part in msg.walk():
                     content_type = part.get_content_type()
@@ -50,46 +50,36 @@ def fetch_email_by_id(email_id):
 
             email_content = (subject, body)
 
-    # Wyloguj się
     mail.logout()
 
     return email_content
 
 def convert_email_to_markdown(subject, html_content):
-    # Użyj BeautifulSoup do parsowania HTML
     soup = BeautifulSoup(html_content, "html.parser")
 
-    # Usuń niepotrzebne elementy, np. skrypty, style
     for script_or_style in soup(["script", "style"]):
         script_or_style.decompose()
 
-    # Przekształć HTML na Markdown
     markdown_content = md(str(soup))
 
-    # Dodaj tytuł jako nagłówek
     markdown_email = f"# {subject}\n\n{markdown_content}"
 
     return markdown_email
 
 def fetch_all_email_ids():
-    # Wczytaj dane z pliku .env
     load_dotenv()
     imap_host = os.getenv("IMAP_HOST")
     imap_user = os.getenv("IMAP_USER")
     imap_pass = os.getenv("IMAP_PASS")
 
-    # Połącz się z serwerem IMAP
     mail = imaplib.IMAP4_SSL(imap_host)
     mail.login(imap_user, imap_pass)
 
-    # Wybierz skrzynkę odbiorczą
     mail.select("inbox")
 
-    # Pobierz identyfikatory wszystkich wiadomości
     status, messages = mail.search(None, "ALL")
     email_ids = messages[0].split() if status == 'OK' else []
 
-    # Wyloguj się
     mail.logout()
 
     return email_ids
@@ -121,16 +111,17 @@ async def main():
                         if current_chunk_tokens + line_tokens < 900:
                             current_chunk.append(line)
                             current_chunk_tokens += line_tokens
+                            print(f"Current chunk tokens: {current_chunk_tokens}")
                         else:
                             file.write('\n'.join(current_chunk) + "\n\n")
-
+                            email_text = '\n'.join(current_chunk)
+                            response = await openai_service.call_openai_api("Opisz mi najważniejsze informacje z tego emaila: " + email_text)
+                            print(response + "\n\n")
                             current_chunk = [line]
                             current_chunk_tokens = line_tokens
 
                     if current_chunk:
                         file.write('\n'.join(current_chunk) + "\n\n")
-
-                file.write(markdown_email + "\n\n")
         else:
             print(f"No email found for ID: {email_id}")
 
