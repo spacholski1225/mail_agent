@@ -3,6 +3,7 @@ import email
 import requests
 import json
 import os
+import re
 from email.header import decode_header
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
@@ -10,7 +11,6 @@ from markdownify import markdownify as md
 from OpenAIService import OpenAIService
 
 def fetch_email_by_id(email_id):
-    # Wczytaj dane z pliku .env
     load_dotenv()
     imap_host = os.getenv("IMAP_HOST")
     imap_user = os.getenv("IMAP_USER")
@@ -115,7 +115,10 @@ async def main():
                         else:
                             file.write('\n'.join(current_chunk) + "\n\n")
                             email_text = '\n'.join(current_chunk)
-                            response = await openai_service.call_openai_api("Opisz mi najważniejsze informacje z tego emaila: " + email_text)
+                            prompt = "Opisz mi najważniejsze informacje z tego emaila: " + email_text
+                            print(clean_prompt(prompt))
+                            response = await openai_service.call_openai_api(clean_prompt(prompt))
+                            
                             print(response + "\n\n")
                             current_chunk = [line]
                             current_chunk_tokens = line_tokens
@@ -124,6 +127,15 @@ async def main():
                         file.write('\n'.join(current_chunk) + "\n\n")
         else:
             print(f"No email found for ID: {email_id}")
+
+def clean_prompt(prompt):
+    prompt_cleaned = re.sub(r'\n+', '\n', prompt.strip())
+    lines = prompt_cleaned.split("\n")
+    unique_lines = []
+    for line in lines:
+        if line not in unique_lines: 
+            unique_lines.append(line)
+    return "\n".join(unique_lines)
 
 if __name__ == "__main__":
     import asyncio
