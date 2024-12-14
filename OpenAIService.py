@@ -75,7 +75,7 @@ class OpenAIService:
         data = {
             "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": prompt_string}],
-            "max_tokens": 900,
+            "max_tokens": 2000,
             "temperature": 0.7
         }
 

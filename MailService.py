@@ -99,7 +99,7 @@ async def main():
                 token_count = await openai_service.count_tokens([{"role": "user", "content": markdown_email}])
                 print(f"Email length in tokens: {token_count}")
 
-                if token_count < 900:
+                if token_count < 2000:
                     file.write(markdown_email + "\n\n")
                 else:
                     lines = markdown_email.split('\n')
