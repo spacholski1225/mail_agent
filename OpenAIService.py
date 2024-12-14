@@ -74,7 +74,7 @@ class OpenAIService:
         }
         data = {
             "model": "gpt-4o-mini",
-            "messages": [{"role": "user", "content": prompt_string}],
+            "messages": [{"role": "system", "content": read_file_content('C:\Sources\mail_agent\mail_agent\Prompts\InBriefPrompt.md')}, {"role": "user", "content": prompt_string}],
             "max_tokens": 2000,
             "temperature": 0.7
         }
@@ -97,3 +97,13 @@ class OpenAIService:
             print(f"Błąd w odpowiedzi API: brak klucza {e}")
             return None
 
+def read_file_content(file_path:str):
+    print(os.getcwd())
+    try:
+        with open(file_path, 'r') as file:
+            content = file.read()
+        return content
+    except FileNotFoundError:
+        return "File not found."
+    except Exception as e:
+        return f"An error occurred: {e}"

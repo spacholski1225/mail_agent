@@ -4,6 +4,7 @@ import requests
 import json
 import os
 import re
+import aiofiles
 from email.header import decode_header
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
@@ -115,16 +116,17 @@ async def main():
                         else:
                             file.write('\n'.join(current_chunk) + "\n\n")
                             email_text = '\n'.join(current_chunk)
-                            prompt = "Opisz mi najważniejsze informacje z tego emaila: " + email_text
-                            print(clean_prompt(prompt))
-                            response = await openai_service.call_openai_api(clean_prompt(prompt))
+                            print(clean_prompt(email_text))
+                            response = await openai_service.call_openai_api(clean_prompt(email_text))
                             
                             print(response + "\n\n")
+                            await write_response_to_file(response)
+
                             current_chunk = [line]
                             current_chunk_tokens = line_tokens
 
                     if current_chunk:
-                        file.write('\n'.join(current_chunk) + "\n\n")
+                        file.write(current_chunk)
         else:
             print(f"No email found for ID: {email_id}")
 
@@ -136,6 +138,13 @@ def clean_prompt(prompt):
         if line not in unique_lines: 
             unique_lines.append(line)
     return "\n".join(unique_lines)
+
+async def write_response_to_file(response):
+    try:
+        async with aiofiles.open('response.json', 'w') as file:
+            await file.write(response)
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
     import asyncio
